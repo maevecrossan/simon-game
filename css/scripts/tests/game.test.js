@@ -2,7 +2,10 @@
  * @jest-environment jsdom
  */
 
-const { game, newGame, showScore, addTurn, lightsOn, showTurns } = require("../game"); //imports from game.js
+const { executionAsyncId } = require("async_hooks");
+const { game, newGame, showScore, addTurn, lightsOn, showTurns, playerTurn } = require("../game"); //imports from game.js
+
+jest.spyOn(window, "alert").mockImplementation(() => { }); //spy on the window, then the method (alert). Catches alert and divert sit into empty function.
 
 beforeAll(() => { //loads html file into the DOM.
     let fs = require("fs");
@@ -10,6 +13,15 @@ beforeAll(() => { //loads html file into the DOM.
     document.open();
     document.write(fileContents);
     document.close(); 
+});
+
+
+describe("pre-game", () => {
+    test("clicking buttons before newGame should fail", () => {
+        game.lastButton = "";
+        document.getElementById("button2").click();
+        expect(game.lastButton).toEqual("");
+    });
 });
 
 describe("game object contains correct keys", () => {
@@ -30,6 +42,15 @@ describe("game object contains correct keys", () => {
     });
     test("turnNumber key exists", () => {
         expect("turnNumber" in game).toBe(true);
+    });
+    test("lastButton key exists", () => {
+        expect("lastButton" in game).toBe(true);
+    });
+    test("turnInProgress key exists", () => {
+        expect("turnInProgress" in game).toBe(true);
+    });
+    test("turnInProgress key value is false", () => {
+        expect("turnInProgress" in game).toBe(true);
     });
 });
 
@@ -65,8 +86,8 @@ describe("newGame works correctly", () => {
 describe("gameplay works correctly", () => {
     beforeEach(() => { // before each test is run
         game.score = 0;
-        game.playerMoves = [];
         game.currentGame = [];
+        game.playerMoves = [];
         addTurn(); //should be 1 element in the currentGame array
     });
     afterEach(() => { // after each test is run
@@ -81,11 +102,31 @@ describe("gameplay works correctly", () => {
     test("should add correct class to light up the buttons", () => {
         let button = document.getElementById(game.currentGame[0]);
         lightsOn(game.currentGame[0]);
-        expect(button.classList).toContain(game.currentGame[0] + "light"); // to contain 'light' class (opacity)
+        expect(button.classList).toContain("light");
     });
     test("showTurns should update game.turnNumber", () => {
         game.turnNumber = 42;
         showTurns(); //should reset turn number
         expect(game.turnNumber).toBe(0);
+    });
+    test("should incremenet the score if the turn is correct", () => {
+        game.playerMoves.push(game.currentGame[0]); //pushes the turn into the playerMoves array before calling playerTurn. Let's us know we have the right answer (playerTurn and computersTurn will match.)
+        playerTurn(); // after calling playerTurn, we would expect...
+        expect(game.score).toBe(1); // the score to have increased.
+    });
+    test("should call an alter if the move is wrong", () => {
+        game.playerMoves.push("wrong");
+        playerTurn();
+        expect(window.alert).toBeCalledWith("Wrong move!");
+    });
+    test("should toggle turnInProgress to true", () => { //while computer is showing its turns.
+        showTurns();
+        expect(game.turnInProgress).toBe(true);
+    });
+    test("click during computer sequence should fail", () => {
+        showTurns() // call to start computer sequence
+        game.lastButton = ""; // resets to empty 
+        document.getElementById("button2").click();
+        expect(game.lastButton).toEqual("");
     });
 });
